@@ -1,8 +1,0 @@
-name: RegionsTrial
-version: '1.0-SNAPSHOT'
-main: com.github.kuramastone.regionstrial.RegionPlugin
-api-version: '1.21'
-
-commands:
-  region:
-    description: Designate and customize regions of the world.
