@@ -4,10 +4,6 @@ Using MySQL for remote storage, this plugin allows the administrators to define 
 
 */region* is the base command to open the gui. The tab-complete should be fully implemented and intuitive to see all the features and their usage.
 
-*/region create <name>*
-
-*/region section add <region> <section name>*
-
 Permissions for internal commands:
 - region.menu: opens menu
 - region.whitelist: make modifications to the whitelist
