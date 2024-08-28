@@ -10,12 +10,12 @@ import xyz.xenondevs.invui.item.impl.SimpleItem;
 
 import java.util.UUID;
 
-public class RegionWhitelistItem extends SimpleItem {
+public class RegionWhitelistEntryItem extends SimpleItem {
 
         private UUID uuid;
         private Region region;
 
-        public RegionWhitelistItem(@NotNull ItemProvider itemProvider, Region region, UUID uuid) {
+        public RegionWhitelistEntryItem(@NotNull ItemProvider itemProvider, Region region, UUID uuid) {
             super(itemProvider);
             this.uuid = uuid;
             this.region = region;

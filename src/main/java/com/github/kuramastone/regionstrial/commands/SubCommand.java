@@ -21,8 +21,14 @@ public abstract class SubCommand {
         this.api = api;
         this.argumentLocation = argumentLocation;
         this.subcommand = subcommand;
+
+        subCommands = new ArrayList<>();
     }
 
+    protected List<SubCommand> subCommands;
+    public void registerSubCommand(SubCommand command) {
+        this.subCommands.add(command);
+    }
 
     public abstract boolean execute(CommandSender sender, String[] args);
 
@@ -105,4 +111,9 @@ public abstract class SubCommand {
     public String getSubcommand() {
         return subcommand;
     }
+
+    public void setSubCommands(List<SubCommand> subCommands) {
+        this.subCommands = subCommands;
+    }
+
 }

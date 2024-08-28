@@ -16,13 +16,13 @@ import java.util.Collection;
 /**
      * Used to create a clickable item that toggles whitelist
      */
-    public class ToggleAllWhitelistItem extends SimpleItem {
+    public class ToggleEntireWhitelistItem extends SimpleItem {
 
         private boolean addToWhitelist;
         private Collection<Entity> list;
         private Region region;
 
-        public ToggleAllWhitelistItem(boolean addToWhitelist, Collection<Entity> list, Region region, Material mat, String name) {
+        public ToggleEntireWhitelistItem(boolean addToWhitelist, Collection<Entity> list, Region region, Material mat, String name) {
             super(new ItemBuilder(mat).setDisplayName(name).addLoreLines("Double left click to use."));
             this.addToWhitelist = addToWhitelist;
             this.list = list;

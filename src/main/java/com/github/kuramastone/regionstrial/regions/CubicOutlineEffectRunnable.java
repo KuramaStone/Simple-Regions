@@ -2,7 +2,6 @@ package com.github.kuramastone.regionstrial.regions;
 
 import com.github.kuramastone.regionstrial.RegionPlugin;
 import org.bukkit.*;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
@@ -30,7 +29,7 @@ public class CubicOutlineEffectRunnable implements Runnable {
 
     public CubicOutlineEffectRunnable(Color color, CubicRegion region) {
         this.outlineColor = color;
-        world = Bukkit.getWorld(region.getWorldUUID());
+        world = Bukkit.getWorld(region.getWorldUID());
         preloadOutline(region);
     }
 

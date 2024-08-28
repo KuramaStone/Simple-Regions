@@ -1,12 +1,10 @@
-package com.github.kuramastone.regionstrial.commands;
+package com.github.kuramastone.regionstrial.commands.region;
 
 import com.github.kuramastone.regionstrial.RegionAPI;
+import com.github.kuramastone.regionstrial.commands.SubCommand;
 import com.github.kuramastone.regionstrial.regions.Region;
 import org.bukkit.command.CommandSender;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 
 public class RegionRenameCommand extends SubCommand {

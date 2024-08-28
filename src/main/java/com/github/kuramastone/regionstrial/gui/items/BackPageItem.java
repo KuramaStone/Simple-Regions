@@ -9,9 +9,9 @@ import xyz.xenondevs.invui.item.impl.controlitem.PageItem;
 /**
  * Back page
  */
-public class BackItem extends PageItem {
+public class BackPageItem extends PageItem {
 
-        public BackItem() {
+        public BackPageItem() {
             super(false);
         }
 

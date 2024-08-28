@@ -66,10 +66,6 @@ public class CubicRegion implements RegionSection {
         return highCorner;
     }
 
-    public UUID getWorldUUID() {
-        return world_uuid;
-    }
-
     public void setLowCorner(Vector loc) {
         this.lowCorner = loc;
         updateCorners();

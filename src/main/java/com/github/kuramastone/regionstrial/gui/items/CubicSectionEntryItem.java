@@ -16,12 +16,12 @@ import xyz.xenondevs.invui.item.impl.SimpleItem;
 /**
  * Item that represents a cubic section
  */
-public class CubicSectionItem extends SimpleItem {
+public class CubicSectionEntryItem extends SimpleItem {
 
         private Region region;
         private String sectionName;
 
-        public CubicSectionItem(Region region, CubicRegion section) {
+        public CubicSectionEntryItem(Region region, CubicRegion section) {
             super((ItemProvider) null);
             this.region = region;
             this.sectionName = section.getName();

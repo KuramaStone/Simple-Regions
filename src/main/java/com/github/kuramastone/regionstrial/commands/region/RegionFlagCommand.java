@@ -1,6 +1,7 @@
-package com.github.kuramastone.regionstrial.commands;
+package com.github.kuramastone.regionstrial.commands.region;
 
 import com.github.kuramastone.regionstrial.RegionAPI;
+import com.github.kuramastone.regionstrial.commands.SubCommand;
 import com.github.kuramastone.regionstrial.gui.FlagGUI;
 import com.github.kuramastone.regionstrial.regions.FlagScope;
 import com.github.kuramastone.regionstrial.regions.Region;

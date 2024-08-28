@@ -1,44 +1,64 @@
 package com.github.kuramastone.regionstrial.commands.section;
 
 import com.github.kuramastone.regionstrial.RegionAPI;
+import com.github.kuramastone.regionstrial.RegionPlugin;
 import com.github.kuramastone.regionstrial.commands.SubCommand;
 import com.github.kuramastone.regionstrial.regions.Region;
+import com.github.kuramastone.regionstrial.selection.PlayerSelection;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-public class SectionCommand extends SubCommand {
+public class SectionAddCommand extends SubCommand {
 
-    public SectionCommand(RegionAPI api) {
-        super(api, 1, "section");
+    public SectionAddCommand(RegionAPI api) {
+        super(api, 2, "add");
     }
 
     @Override
     public boolean execute(CommandSender sender, String[] args) {
-        if (!sender.hasPermission(RegionAPI.createRegionPermission)) {
-            sender.sendMessage(api.getMessage("commands.insufficient_permissions"));
+        if (args.length < 4) {
+            sender.sendMessage("Usage: /region section add <region> <section>");
             return true;
         }
 
-        if (args.length < 2) {
-            sender.sendMessage("Usage: /region create <region> ");
-            return true;
-        }
+        String regionName = args[2];
+        String additionName = args[3];
 
-        String regionName = args[1];
         Region region = api.getRegion(regionName);
-
-        if (region != null) {
-            sender.sendMessage(api.getMessage("commands.regions.region_already_exists").replace("{region}", regionName));
+        if (region == null) {
+            sender.sendMessage(api.getMessage("commands.regions.unknown_region").replace("{region}", regionName));
             return true;
         }
-        region = new Region(regionName, new LinkedHashMap<>(), new HashSet<>(), new HashMap<>());
 
-        api.addRegion(region);
-        sender.sendMessage(api.getMessage("commands.regions.create.success").replace("{region}", region.getName()));
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("Only players can use the selection tool.");
+            return true;
+        }
+
+        if (region.doesSectionExist(additionName)) {
+            sender.sendMessage(api.getMessage("commands.regions.section_already_exists")
+                    .replace("{region}", regionName)
+                    .replace("{section}", additionName));
+            return true;
+        }
+
+        PlayerSelection selection = api.getOrCreateSelectionOf(player);
+        if (!selection.isReady()) {
+            sender.sendMessage(api.getMessage("commands.regions.selection_not_ready")
+                    .replace("{region}", regionName)
+                    .replace("{section}", additionName));
+            return true;
+        }
+
+        region.addSection(selection.selectionToRegion(additionName));
+        player.sendMessage(api.getMessage("commands.regions.section.add_success")
+                .replace("{region}", region.getName())
+                .replace("{section}", additionName));
         return true;
     }
 
@@ -52,7 +72,10 @@ public class SectionCommand extends SubCommand {
         }
 
         if(args.length == start + 2) {
-            return List.of("<unique name>");
+            Region region = api.getRegion(args[start]);
+            if(region != null) {
+                return predictSuggestionStartingWith(args[start +  1], region.getSectionNames());
+            }
         }
 
 

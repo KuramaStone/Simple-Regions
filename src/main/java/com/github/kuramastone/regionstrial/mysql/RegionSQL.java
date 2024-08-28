@@ -9,191 +9,267 @@ import java.util.*;
 public class RegionSQL {
 
 
-    public static List<Region> loadAllRegions(RegionsDatabase database) throws SQLException {
-        String selectAllRegionsSQL = "SELECT id FROM Regions";
+    // Save all regions from a collection
+    public static void saveAllRegions(RegionsDatabase database, Collection<Region> regions) throws SQLException {
+        try (Connection connection = database.getConnection()) {
+            connection.setAutoCommit(false);
 
-        List<Region> regions = new ArrayList<>();
+            // Process each region
+            for (Region region : regions) {
+                // 1. Delete existing data
+                deleteRegion(connection, region.getName());
 
-        try (Connection conn = database.getConnection();
-             PreparedStatement allRegionsStmt = conn.prepareStatement(selectAllRegionsSQL);
-             PreparedStatement regionStmt = conn.prepareStatement("SELECT name FROM Regions WHERE id = ?");
-             PreparedStatement sectionStmt = conn.prepareStatement("SELECT id, section_type, section_order, name FROM RegionSections WHERE region_id = ? ORDER BY section_order ASC");
-             PreparedStatement cubicStmt = conn.prepareStatement("SELECT world_uuid, low_x, low_y, low_z, high_x, high_y, high_z FROM CubicRegions WHERE id = ?");
-             PreparedStatement entityStmt = conn.prepareStatement("SELECT entity_uuid FROM WhitelistedEntities WHERE region_id = ?");
-             PreparedStatement flagStmt = conn.prepareStatement("SELECT flag_name, flag_scope FROM RegionFlags WHERE region_id = ?")) {
+                // 2. Insert region
+                int regionId = insertRegion(connection, region.getName());
 
-            ResultSet allRegionsRS = allRegionsStmt.executeQuery();
-            while (allRegionsRS.next()) {
-                long regionId = allRegionsRS.getLong("id");
+                // 3. Insert sections
+                insertSections(connection, regionId, region.getSections());
 
-                // Load the region
-                regionStmt.setLong(1, regionId);
-                ResultSet regionRS = regionStmt.executeQuery();
+                // 4. Insert whitelisted entities
+                insertWhitelistedEntities(connection, regionId, region.getWhitelistedEntities());
 
-                if (regionRS.next()) {
-                    String regionName = regionRS.getString("name");
+                // 5. Insert flags
+                insertFlags(connection, regionId, region.getFlags());
+            }
 
-                    // Load sections
-                    LinkedHashMap<String, RegionSection> sections = new LinkedHashMap<>();
-                    sectionStmt.setLong(1, regionId);
-                    ResultSet sectionRS = sectionStmt.executeQuery();
-                    while (sectionRS.next()) {
-                        long sectionId = sectionRS.getLong("id");
-                        String sectionType = sectionRS.getString("section_type");
-                        String sectionName = sectionRS.getString("name"); // Correctly use the section name
+            connection.commit();
+        }
+    }
 
-                        if ("CUBIC".equals(sectionType)) {
-                            cubicStmt.setLong(1, sectionId);
-                            ResultSet cubicRS = cubicStmt.executeQuery();
-                            if (cubicRS.next()) {
-                                UUID worldUUID = UUID.fromString(cubicRS.getString("world_uuid"));
-                                Vector lowCorner = new Vector(cubicRS.getDouble("low_x"), cubicRS.getDouble("low_y"), cubicRS.getDouble("low_z"));
-                                Vector highCorner = new Vector(cubicRS.getDouble("high_x"), cubicRS.getDouble("high_y"), cubicRS.getDouble("high_z"));
-                                sections.put(sectionName, new CubicRegion(sectionName, worldUUID, lowCorner, highCorner)); // Use sectionName
-                            }
-                        }
-                    }
+    // Load All Regions Method
+    public static Map<String, Region> loadAllRegions(RegionsDatabase database) throws SQLException {
+        Map<String, Region> regions = new HashMap<>();
 
-                    // Load whitelisted entities
-                    Set<UUID> whitelistedEntities = new HashSet<>();
-                    entityStmt.setLong(1, regionId);
-                    ResultSet entityRS = entityStmt.executeQuery();
-                    while (entityRS.next()) {
-                        whitelistedEntities.add(UUID.fromString(entityRS.getString("entity_uuid")));
-                    }
+        try (Connection connection = database.getConnection()) {
+            // Get all regions
+            String getAllRegions = "SELECT id, name FROM regions";
+            try (PreparedStatement stmt = connection.prepareStatement(getAllRegions);
+                 ResultSet rs = stmt.executeQuery()) {
 
-                    // Load flags
-                    Map<RegionFlag, FlagScope> flags = new HashMap<>();
-                    flagStmt.setLong(1, regionId);
-                    ResultSet flagRS = flagStmt.executeQuery();
-                    while (flagRS.next()) {
-                        flags.put(new RegionFlag(flagRS.getString("flag_name")), FlagScope.valueOf(flagRS.getString("flag_scope")));
-                    }
+                while (rs.next()) {
+                    int regionId = rs.getInt("id");
+                    String name = rs.getString("name");
 
-                    // Create the Region object
-                    Region region = new Region(regionName, sections, whitelistedEntities, flags);
-                    regions.add(region);
+                    // Load sections, entities, and flags for each region
+                    LinkedHashMap<String, RegionSection> sections = loadSections(connection, regionId);
+                    Set<UUID> entities = loadWhitelistedEntities(connection, regionId);
+                    Map<RegionFlag, FlagScope> flags = loadFlags(connection, regionId);
+
+                    Region region = new Region(name, sections, entities, flags);
+                    regions.put(name, region);
                 }
             }
         }
+
         return regions;
     }
 
+    private static LinkedHashMap<String, RegionSection> loadSections(Connection connection, int regionId) throws SQLException {
+        LinkedHashMap<String, RegionSection> sections = new LinkedHashMap<>();
+        String getSections = "SELECT * FROM region_sections WHERE region_id = ?";
 
-    public static void saveRegion(RegionsDatabase database, Region region) throws SQLException {
-        String insertRegionSQL = "INSERT INTO Regions (name) VALUES (?)";
-        String insertSectionSQL = "INSERT INTO RegionSections (region_id, section_type, section_order, name) VALUES (?, ?, ?, ?)";
-        String insertCubicRegionSQL = "INSERT INTO CubicRegions (id, world_uuid, low_x, low_y, low_z, high_x, high_y, high_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        String insertWhitelistedEntitySQL = "INSERT INTO WhitelistedEntities (region_id, entity_uuid) VALUES (?, ?)";
-        String insertFlagSQL = "INSERT INTO RegionFlags (region_id, flag_name, flag_scope) VALUES (?, ?, ?)";
-
-        try (Connection conn = database.getConnection();
-             PreparedStatement insertRegionStmt = conn.prepareStatement(insertRegionSQL, Statement.RETURN_GENERATED_KEYS);
-             PreparedStatement insertSectionStmt = conn.prepareStatement(insertSectionSQL);
-             PreparedStatement insertCubicStmt = conn.prepareStatement(insertCubicRegionSQL);
-             PreparedStatement insertEntityStmt = conn.prepareStatement(insertWhitelistedEntitySQL);
-             PreparedStatement insertFlagStmt = conn.prepareStatement(insertFlagSQL)) {
-
-            // Insert Region
-            insertRegionStmt.setString(1, region.getName());
-            insertRegionStmt.executeUpdate();
-            ResultSet generatedKeys = insertRegionStmt.getGeneratedKeys();
-            long regionId;
-            if (generatedKeys.next()) {
-                regionId = generatedKeys.getLong(1);
-            }
-            else {
-                throw new SQLException("Creating region failed, no ID obtained.");
-            }
-
-            // Insert Sections
-            List<String> indexedKeys = new ArrayList<>(region.getSections().keySet());
-            for (int i = 0; i < region.getSections().size(); i++) {
-                RegionSection section = region.getSections().get(indexedKeys.get(i));
-                String sectionType = section instanceof CubicRegion ? "CUBIC" : "SPHERICAL";
-                insertSectionStmt.setLong(1, regionId);
-                insertSectionStmt.setString(2, sectionType);
-                insertSectionStmt.setInt(3, i);
-                insertSectionStmt.setString(4, section.getName());
-                insertSectionStmt.addBatch();
-
-                // Insert specific section details
-                if (section instanceof CubicRegion) {
-                    CubicRegion cubicRegion = (CubicRegion) section;
-                    insertCubicStmt.setLong(1, regionId);
-                    insertCubicStmt.setString(2, cubicRegion.getWorldUUID().toString());
-                    insertCubicStmt.setDouble(3, cubicRegion.getLowCorner().getX());
-                    insertCubicStmt.setDouble(4, cubicRegion.getLowCorner().getY());
-                    insertCubicStmt.setDouble(5, cubicRegion.getLowCorner().getZ());
-                    insertCubicStmt.setDouble(6, cubicRegion.getHighCorner().getX());
-                    insertCubicStmt.setDouble(7, cubicRegion.getHighCorner().getY());
-                    insertCubicStmt.setDouble(8, cubicRegion.getHighCorner().getZ());
-                    insertCubicStmt.addBatch();
+        try (PreparedStatement stmt = connection.prepareStatement(getSections)) {
+            stmt.setInt(1, regionId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    String sectionName = rs.getString("section_name");
+                    UUID worldUuid = convertBytesToUUID(rs.getBytes("world_uuid"));
+                    Vector lowCorner = new Vector(rs.getDouble("low_corner_x"), rs.getDouble("low_corner_y"), rs.getDouble("low_corner_z"));
+                    Vector highCorner = new Vector(rs.getDouble("high_corner_x"), rs.getDouble("high_corner_y"), rs.getDouble("high_corner_z"));
+                    sections.put(sectionName, new CubicRegion(sectionName, worldUuid, lowCorner, highCorner));
                 }
             }
-            insertSectionStmt.executeBatch();
-            insertCubicStmt.executeBatch();
-
-            // Insert Whitelisted Entities
-            for (UUID entityId : region.getWhitelistedEntities()) {
-                insertEntityStmt.setLong(1, regionId);
-                insertEntityStmt.setString(2, entityId.toString());
-                insertEntityStmt.addBatch();
-            }
-            insertEntityStmt.executeBatch();
-
-            // Insert Flags
-            for (Map.Entry<RegionFlag, FlagScope> entry : region.getFlags().entrySet()) {
-                insertFlagStmt.setLong(1, regionId);
-                insertFlagStmt.setString(2, entry.getKey().getName());
-                insertFlagStmt.setString(3, entry.getValue().name());
-                insertFlagStmt.addBatch();
-            }
-            insertFlagStmt.executeBatch();
         }
+
+        return sections;
+    }
+
+    private static Set<UUID> loadWhitelistedEntities(Connection connection, int regionId) throws SQLException {
+        Set<UUID> entities = new HashSet<>();
+        String getEntities = "SELECT entity_uuid FROM whitelisted_entities WHERE region_id = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(getEntities)) {
+            stmt.setInt(1, regionId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    entities.add(convertBytesToUUID(rs.getBytes("entity_uuid")));
+                }
+            }
+        }
+
+        return entities;
+    }
+
+    private static Map<RegionFlag, FlagScope> loadFlags(Connection connection, int regionId) throws SQLException {
+        Map<RegionFlag, FlagScope> flags = new HashMap<>();
+        String getFlags = "SELECT flag_name, scope FROM flags WHERE region_id = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(getFlags)) {
+            stmt.setInt(1, regionId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    RegionFlag flag = new RegionFlag(rs.getString("flag_name"));
+                    FlagScope scope = FlagScope.valueOf(rs.getString("scope"));
+                    flags.put(flag, scope);
+                }
+            }
+        }
+
+        return flags;
+    }
+
+    private static void deleteRegion(Connection connection, String regionName) throws SQLException {
+        String deleteSections = "DELETE FROM region_sections WHERE region_id = (SELECT id FROM regions WHERE name = ?)";
+        String deleteWhitelistedEntities = "DELETE FROM whitelisted_entities WHERE region_id = (SELECT id FROM regions WHERE name = ?)";
+        String deleteFlags = "DELETE FROM flags WHERE region_id = (SELECT id FROM regions WHERE name = ?)";
+        String deleteRegion = "DELETE FROM regions WHERE name = ?";
+
+        try (PreparedStatement deleteSectionsStmt = connection.prepareStatement(deleteSections);
+             PreparedStatement deleteWhitelistedEntitiesStmt = connection.prepareStatement(deleteWhitelistedEntities);
+             PreparedStatement deleteFlagsStmt = connection.prepareStatement(deleteFlags);
+             PreparedStatement deleteRegionStmt = connection.prepareStatement(deleteRegion)) {
+
+            deleteSectionsStmt.setString(1, regionName);
+            deleteSectionsStmt.executeUpdate();
+
+            deleteWhitelistedEntitiesStmt.setString(1, regionName);
+            deleteWhitelistedEntitiesStmt.executeUpdate();
+
+            deleteFlagsStmt.setString(1, regionName);
+            deleteFlagsStmt.executeUpdate();
+
+            deleteRegionStmt.setString(1, regionName);
+            deleteRegionStmt.executeUpdate();
+        }
+    }
+
+    private static int insertRegion(Connection connection, String name) throws SQLException {
+        String insertRegion = "INSERT INTO regions (name) VALUES (?)";
+        try (PreparedStatement stmt = connection.prepareStatement(insertRegion, PreparedStatement.RETURN_GENERATED_KEYS)) {
+            stmt.setString(1, name);
+            stmt.executeUpdate();
+
+            try (var rs = stmt.getGeneratedKeys()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+                else {
+                    throw new SQLException("Failed to retrieve region ID.");
+                }
+            }
+        }
+    }
+
+    private static void insertSections(Connection connection, int regionId, Map<String, RegionSection> sections) throws SQLException {
+        String insertSection = "INSERT INTO region_sections (region_id, section_name, world_uuid, low_corner_x, low_corner_y, low_corner_z, high_corner_x, high_corner_y, high_corner_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        try (PreparedStatement stmt = connection.prepareStatement(insertSection)) {
+            for (RegionSection section : sections.values()) {
+                if (section instanceof CubicRegion) {
+                    CubicRegion cubic = (CubicRegion) section;
+                    stmt.setInt(1, regionId);
+                    stmt.setString(2, cubic.getName());
+                    stmt.setBytes(3, convertUUIDToBytes(cubic.getWorldUID()));
+                    stmt.setDouble(4, cubic.getLowCorner().getX());
+                    stmt.setDouble(5, cubic.getLowCorner().getY());
+                    stmt.setDouble(6, cubic.getLowCorner().getZ());
+                    stmt.setDouble(7, cubic.getHighCorner().getX());
+                    stmt.setDouble(8, cubic.getHighCorner().getY());
+                    stmt.setDouble(9, cubic.getHighCorner().getZ());
+                    stmt.addBatch();
+                }
+            }
+            stmt.executeBatch();
+        }
+    }
+
+    private static void insertWhitelistedEntities(Connection connection, int regionId, Set<UUID> entities) throws SQLException {
+        String insertEntity = "INSERT INTO whitelisted_entities (region_id, entity_uuid) VALUES (?, ?)";
+
+        try (PreparedStatement stmt = connection.prepareStatement(insertEntity)) {
+            for (UUID entity : entities) {
+                stmt.setInt(1, regionId);
+                stmt.setBytes(2, convertUUIDToBytes(entity));
+                stmt.addBatch();
+            }
+            stmt.executeBatch();
+        }
+    }
+
+    private static void insertFlags(Connection connection, int regionId, Map<RegionFlag, FlagScope> flags) throws SQLException {
+        String insertFlag = "INSERT INTO flags (region_id, flag_name, scope) VALUES (?, ?, ?)";
+
+        try (PreparedStatement stmt = connection.prepareStatement(insertFlag)) {
+            for (Map.Entry<RegionFlag, FlagScope> entry : flags.entrySet()) {
+                stmt.setInt(1, regionId);
+                stmt.setString(2, entry.getKey().getName());
+                stmt.setString(3, entry.getValue().name());
+                stmt.addBatch();
+            }
+            stmt.executeBatch();
+        }
+    }
+
+    private static byte[] convertUUIDToBytes(UUID uuid) {
+        byte[] bytes = new byte[16];
+        for (int i = 0; i < 8; i++) {
+            bytes[i] = (byte) (uuid.getMostSignificantBits() >> (8 * (7 - i)));
+        }
+        for (int i = 0; i < 8; i++) {
+            bytes[8 + i] = (byte) (uuid.getLeastSignificantBits() >> (8 * (7 - i)));
+        }
+        return bytes;
+    }
+
+    private static UUID convertBytesToUUID(byte[] bytes) {
+        long mostSigBits = 0;
+        long leastSigBits = 0;
+        for (int i = 0; i < 8; i++) {
+            mostSigBits = (mostSigBits << 8) | (bytes[i] & 0xFF);
+        }
+        for (int i = 8; i < 16; i++) {
+            leastSigBits = (leastSigBits << 8) | (bytes[i] & 0xFF);
+        }
+        return new UUID(mostSigBits, leastSigBits);
     }
 
     public static void createSchema(RegionsDatabase database) throws SQLException {
 
         String schema = """
-                CREATE TABLE IF NOT EXISTS Regions (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(255) NOT NULL
+                CREATE TABLE regions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    name VARCHAR(255) UNIQUE NOT NULL
                 );
-
-                CREATE TABLE IF NOT EXISTS RegionSections (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    region_id BIGINT NOT NULL,
-                    section_type VARCHAR(50) NOT NULL,
-                    section_order INT NOT NULL,
-                    name VARCHAR(255) NOT NULL,
-                    FOREIGN KEY (region_id) REFERENCES Regions(id)
+                                
+                CREATE TABLE region_sections (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    region_id INT,
+                    section_name VARCHAR(255),
+                    world_uuid BINARY(16),
+                    low_corner_x DOUBLE,
+                    low_corner_y DOUBLE,
+                    low_corner_z DOUBLE,
+                    high_corner_x DOUBLE,
+                    high_corner_y DOUBLE,
+                    high_corner_z DOUBLE,
+                    FOREIGN KEY (region_id) REFERENCES regions(id)
                 );
-
-                CREATE TABLE IF NOT EXISTS CubicRegions (
-                    id BIGINT PRIMARY KEY,
-                    world_uuid CHAR(36) NOT NULL,
-                    low_x DOUBLE NOT NULL,
-                    low_y DOUBLE NOT NULL,
-                    low_z DOUBLE NOT NULL,
-                    high_x DOUBLE NOT NULL,
-                    high_y DOUBLE NOT NULL,
-                    high_z DOUBLE NOT NULL,
-                    FOREIGN KEY (id) REFERENCES RegionSections(id)
+                                
+                CREATE TABLE whitelisted_entities (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    region_id INT,
+                    entity_uuid BINARY(16),
+                    FOREIGN KEY (region_id) REFERENCES regions(id)
                 );
-
-                CREATE TABLE IF NOT EXISTS WhitelistedEntities (
-                    region_id BIGINT NOT NULL,
-                    entity_uuid CHAR(36) NOT NULL,
-                    FOREIGN KEY (region_id) REFERENCES Regions(id)
+                                
+                CREATE TABLE flags (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    region_id INT,
+                    flag_name VARCHAR(255),
+                    scope VARCHAR(255),
+                    FOREIGN KEY (region_id) REFERENCES regions(id)
                 );
-
-                CREATE TABLE IF NOT EXISTS RegionFlags (
-                    region_id BIGINT NOT NULL,
-                    flag_name VARCHAR(255) NOT NULL,
-                    flag_scope VARCHAR(50) NOT NULL,
-                    FOREIGN KEY (region_id) REFERENCES Regions(id)
-                );
+                                
                 """;
 
         String[] statements = schema.split("(?<=;)\s*");

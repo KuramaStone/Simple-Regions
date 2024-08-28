@@ -1,13 +1,10 @@
-package com.github.kuramastone.regionstrial.commands;
+package com.github.kuramastone.regionstrial.commands.region;
 
 import com.github.kuramastone.regionstrial.RegionAPI;
-import com.github.kuramastone.regionstrial.regions.Region;
+import com.github.kuramastone.regionstrial.commands.SubCommand;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 
 public class RegionWandCommand extends SubCommand {

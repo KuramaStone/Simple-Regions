@@ -11,11 +11,11 @@ import xyz.xenondevs.invui.item.ItemProvider;
 import xyz.xenondevs.invui.item.builder.ItemBuilder;
 import xyz.xenondevs.invui.item.impl.SimpleItem;
 
-public class WhitelistItem extends SimpleItem {
+public class WhitelistEntryItem extends SimpleItem {
 
         private Region region;
 
-        public WhitelistItem(Region region) {
+        public WhitelistEntryItem(Region region) {
             super((ItemProvider) null);
             this.region = region;
         }

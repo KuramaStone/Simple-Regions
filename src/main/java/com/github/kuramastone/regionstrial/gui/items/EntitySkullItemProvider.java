@@ -20,7 +20,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class EntityItemProvider extends AbstractItemBuilder<EntityItemProvider> {
+/**
+ * Item that represents a cubic section
+ */
+public class EntitySkullItemProvider extends AbstractItemBuilder<EntitySkullItemProvider> {
 
         private Region region;
         private String name;
@@ -29,7 +32,7 @@ public class EntityItemProvider extends AbstractItemBuilder<EntityItemProvider> 
         private UUID uuid;
         private PlayerProfile playerProfile;
 
-        public EntityItemProvider(Region region, UUID uuid) {
+        public EntitySkullItemProvider(Region region, UUID uuid) {
             super((Material) null);
             this.region = region;
             this.uuid = uuid;

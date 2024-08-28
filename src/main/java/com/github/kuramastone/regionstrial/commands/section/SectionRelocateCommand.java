@@ -1,32 +1,30 @@
 package com.github.kuramastone.regionstrial.commands.section;
 
 import com.github.kuramastone.regionstrial.RegionAPI;
+import com.github.kuramastone.regionstrial.RegionPlugin;
 import com.github.kuramastone.regionstrial.commands.SubCommand;
 import com.github.kuramastone.regionstrial.regions.Region;
 import com.github.kuramastone.regionstrial.selection.PlayerSelection;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 
-public class SectionAddCommand extends SubCommand {
+public class SectionRelocateCommand extends SubCommand {
 
-    public SectionAddCommand(RegionAPI api) {
-        super(api, 2, "add");
+    public SectionRelocateCommand(RegionAPI api) {
+        super(api, 2, "relocate");
     }
 
     @Override
     public boolean execute(CommandSender sender, String[] args) {
         if (args.length < 4) {
-            sender.sendMessage("Usage: /region section add <region> <section>");
+            sender.sendMessage("Usage: /region section relocate <region> <section>");
             return true;
         }
 
         String regionName = args[2];
-        String additionName = args[3];
+        String sectionName = args[3];
 
         Region region = api.getRegion(regionName);
         if (region == null) {
@@ -39,10 +37,10 @@ public class SectionAddCommand extends SubCommand {
             return true;
         }
 
-        if (region.doesSectionExist(additionName)) {
-            sender.sendMessage(api.getMessage("commands.regions.section_already_exists")
+        if (!region.doesSectionExist(sectionName)) {
+            sender.sendMessage(api.getMessage("commands.regions.section_doesnt_exist")
                     .replace("{region}", regionName)
-                    .replace("{section}", additionName));
+                    .replace("{section}", sectionName));
             return true;
         }
 
@@ -50,14 +48,15 @@ public class SectionAddCommand extends SubCommand {
         if (!selection.isReady()) {
             sender.sendMessage(api.getMessage("commands.regions.selection_not_ready")
                     .replace("{region}", regionName)
-                    .replace("{section}", additionName));
+                    .replace("{section}", sectionName));
             return true;
         }
 
-        region.addSection(selection.selectionToRegion(additionName));
-        player.sendMessage(api.getMessage("commands.regions.section.add_success")
+        region.relocate(sectionName, selection);
+        player.sendMessage(api.getMessage("commands.regions.section.relocate_success")
                 .replace("{region}", region.getName())
-                .replace("{section}", additionName));
+                .replace("{section}", sectionName));
+
         return true;
     }
 
@@ -71,9 +70,9 @@ public class SectionAddCommand extends SubCommand {
         }
 
         if(args.length == start + 2) {
-            Region region = api.getRegion(args[start + 1]);
+            Region region = api.getRegion(args[start]);
             if(region != null) {
-                return predictSuggestionStartingWith(args[start], region.getSectionNames());
+                return predictSuggestionStartingWith(args[start +  1], region.getSectionNames());
             }
         }
 

@@ -10,11 +10,11 @@ import org.jetbrains.annotations.NotNull;
 import xyz.xenondevs.invui.item.builder.ItemBuilder;
 import xyz.xenondevs.invui.item.impl.SimpleItem;
 
-public class RenameItem extends SimpleItem {
+public class RegionRenameItem extends SimpleItem {
 
         private Region region;
 
-        public RenameItem(Region region) {
+        public RegionRenameItem(Region region) {
             super(new ItemBuilder(Material.WRITABLE_BOOK).setDisplayName("Rename Region"));
             this.region = region;
         }
